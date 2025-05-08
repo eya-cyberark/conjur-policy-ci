@@ -1,40 +1,18 @@
 name: Test GitHub OIDC Token
 
 on:
-  workflow_dispatch:  # This allows manual triggering from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   test:
-    runs-on: ubuntu-latest  # You can use other environments like macOS or Windows as well
+    runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Step 2: Install jq (for parsing JSON)
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      # Step 3: Request GitHub OIDC token
-      - name: Request OIDC token
+      - name: Debug environment variables
         run: |
-          echo "Requesting GitHub OIDC token..."
-          
-          # Fetch the token using the GitHub Actions environment variables
-          token_response=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
-
-          # Print raw response for debugging
-          echo "Raw response: $token_response"
-
-          # Extract the JWT token from the response
-          jwt_token=$(echo "$token_response" | jq -r '.value')
-
-          if [ "$jwt_token" = "null" ] || [ -z "$jwt_token" ]; then
-            echo "❌ Failed to retrieve JWT token"
-            exit 1
-          fi
-
-          echo "✅ Successfully retrieved JWT token"
-          echo "jwt_token=$jwt_token" >> $GITHUB_ENV  # Save token to GitHub Actions environment variable
+          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL"
