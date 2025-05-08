@@ -45,5 +45,6 @@ jobs:
           exit 1
         else
           echo "✅ Successfully retrieved JWT token"
+          echo "JWT Token: $jwt_token"
           echo "jwt_token=$jwt_token" >> $GITHUB_ENV  # Save token to GitHub Actions environment variable
         fi
