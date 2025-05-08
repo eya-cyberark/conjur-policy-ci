@@ -48,3 +48,13 @@ jobs:
           echo "JWT Token: $jwt_token"
           echo "jwt_token=$jwt_token" >> $GITHUB_ENV  # Save token to GitHub Actions environment variable
         fi
+        
+      # ✅ Step 3: Show Base64-encoded JWT token (unmasked)
+    - name: Show encoded JWT token
+      run: |
+        if [ -z "${{ env.jwt_token }}" ]; then
+          echo "❌ JWT token is not set in environment"
+          exit 1
+        fi
+        echo "🔐 Encoded JWT Token:"
+        echo "${{ env.jwt_token }}" | base64
