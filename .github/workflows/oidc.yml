@@ -1,7 +1,7 @@
 name: Test GitHub OIDC Token
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manually trigger the workflow
 
 permissions:
   id-token: write
@@ -12,7 +12,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Debug environment variables
-        run: |
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL"
+    # Step 1: Set up the environment and check if required variables are set
+    - name: Check environment variables
+      run: |
+        echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+        echo "ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL"
+        if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+          echo "❌ Missing required environment variables."
+          exit 1
+        else
+          echo "✅ Environment variables are set correctly."
+        fi
+
+    # Step 2: Request GitHub OIDC Token
+    - name: Request GitHub OIDC token
+      run: |
+        echo "Requesting GitHub OIDC token..."
+        
+        # Make the request to GitHub OIDC token endpoint
+        token_response=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
+
+        # Print the raw response for debugging
+        echo "Raw response: $token_response"
+
+        # Extract the JWT token from the response
+        jwt_token=$(echo "$token_response" | jq -r '.value')
+
+        # Check if the JWT token is valid
+        if [ "$jwt_token" = "null" ] || [ -z "$jwt_token" ]; then
+          echo "❌ Failed to retrieve JWT token"
+          exit 1
+        else
+          echo "✅ Successfully retrieved JWT token"
+          echo "jwt_token=$jwt_token" >> $GITHUB_ENV  # Save token to GitHub Actions environment variable
+        fi
