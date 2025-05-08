@@ -1,60 +1,56 @@
-name: Test GitHub OIDC Token
+name: Test GitHub OIDC Token and Authenticate
 
 on:
-  workflow_dispatch:  # Manually trigger the workflow
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  test:
+  authenticate:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Set up the environment and check if required variables are set
-    - name: Check environment variables
-      run: |
-        echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-        echo "ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL"
-        if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
-          echo "❌ Missing required environment variables."
-          exit 1
-        else
-          echo "✅ Environment variables are set correctly."
-        fi
+      - name: Install tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq curl
 
-    # Step 2: Request GitHub OIDC Token
-    - name: Request GitHub OIDC token
-      run: |
-        echo "Requesting GitHub OIDC token..."
-        
-        # Make the request to GitHub OIDC token endpoint
-        token_response=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
+      - name: Request GitHub OIDC Token
+        id: jwt
+        run: |
+          echo "🔐 Requesting GitHub OIDC token..."
+          resp=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
+          echo "Raw: $resp"
+          jwt=$(echo "$resp" | jq -r '.value')
+          if [ "$jwt" = "null" ] || [ -z "$jwt" ]; then
+            echo "❌ Failed to get JWT"
+            exit 1
+          fi
+          echo "✅ Got JWT"
+          echo "jwt_token=$jwt" >> $GITHUB_ENV
 
-        # Print the raw response for debugging
-        echo "Raw response: $token_response"
+      - name: Base64 Encode JWT
+        run: |
+          jwt_b64=$(echo -n "${{ env.jwt_token }}" | base64 | tr -d '\n')
+          echo "jwt_base64=$jwt_b64" >> $GITHUB_ENV
 
-        # Extract the JWT token from the response
-        jwt_token=$(echo "$token_response" | jq -r '.value')
+      - name: Authenticate to Conjur Cloud with JWT
+        run: |
+          echo "🔒 Authenticating with Conjur Cloud"
+          response=$(curl -s -w "%{http_code}" -o conjur_token.txt \
+            -X POST "https://sme-andrew.secretsmgr.cyberark.cloud/api/authn-jwt/github-actions/conjur/authenticate" \
+            -H "Accept-Encoding: base64" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "jwt=${{ env.jwt_token }}")
 
-        # Check if the JWT token is valid
-        if [ "$jwt_token" = "null" ] || [ -z "$jwt_token" ]; then
-          echo "❌ Failed to retrieve JWT token"
-          exit 1
-        else
-          echo "✅ Successfully retrieved JWT token"
-          echo "JWT Token: $jwt_token"
-          echo "jwt_token=$jwt_token" >> $GITHUB_ENV  # Save token to GitHub Actions environment variable
-        fi
-        
-      # ✅ Step 3: Show Base64-encoded JWT token (unmasked)
-    - name: Show encoded JWT token
-      run: |
-        if [ -z "${{ env.jwt_token }}" ]; then
-          echo "❌ JWT token is not set in environment"
-          exit 1
-        fi
-        echo "🔐 Encoded JWT Token:"
-        echo "${{ env.jwt_token }}" | base64
+          status=$(tail -n1 <<< "$response")
+          if [ "$status" != "200" ]; then
+            echo "❌ Auth failed with status $status"
+            cat conjur_token.txt
+            exit 1
+          fi
+          echo "✅ Auth succeeded"
+          token=$(cat conjur_token.txt)
+          echo "conjur_token=$token" >> $GITHUB_ENV
