@@ -22,24 +22,30 @@ jobs:
           echo "🔐 Requesting GitHub OIDC token..."
           resp=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
-          echo "Raw: $resp"
+          
+          echo "📦 Raw response:"
+          echo "$resp"
+
           jwt=$(echo "$resp" | jq -r '.value')
           if [ "$jwt" = "null" ] || [ -z "$jwt" ]; then
             echo "❌ Failed to get JWT"
             exit 1
           fi
+
           echo "✅ Got JWT"
+          echo "🔓 JWT Token:"
+          echo "$jwt"
           echo "jwt_token=$jwt" >> $GITHUB_ENV
 
       - name: Base64 Encode JWT
         run: |
           jwt_b64=$(echo -n "${{ env.jwt_token }}" | base64 | tr -d '\n')
           echo "jwt_base64=$jwt_b64" >> $GITHUB_ENV
-      
+
       - name: Decode JWT
         run: |
-          echo "$jwt_token" | cut -d '.' -f2 | base64 --decode | jq
-
+          echo "🔍 Decoded JWT claims:"
+          echo "${{ env.jwt_token }}" | cut -d '.' -f2 | base64 --decode | jq
 
       - name: Authenticate to Conjur Cloud with JWT
         run: |
@@ -56,6 +62,7 @@ jobs:
             cat conjur_token.txt
             exit 1
           fi
+
           echo "✅ Auth succeeded"
           token=$(cat conjur_token.txt)
           echo "conjur_token=$token" >> $GITHUB_ENV
