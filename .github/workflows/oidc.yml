@@ -20,12 +20,15 @@ jobs:
         id: jwt
         run: |
           echo "🔐 Requesting GitHub OIDC token..."
+          
+          # Request the OIDC token for Conjur audience
           resp=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
 
           echo "📦 Raw response:"
           echo "$resp"
 
+          # Extract the JWT token
           jwt=$(echo "$resp" | jq -r '.value')
           if [ "$jwt" = "null" ] || [ -z "$jwt" ]; then
             echo "❌ Failed to get JWT"
@@ -39,26 +42,33 @@ jobs:
 
       - name: Base64 Encode JWT
         run: |
+          # Base64 encode the JWT token (no new lines)
           jwt_b64=$(echo -n "${{ env.jwt_token }}" | base64 | tr -d '\n')
           echo "jwt_base64=$jwt_b64" >> $GITHUB_ENV
-      
+
       - name: Decode JWT
         run: |
           echo "🧬 Decoded JWT Payload:"
+          # Decode the JWT payload and format it for readability
           echo "${{ env.jwt_token }}" | cut -d '.' -f2 | base64 --decode | jq
 
       - name: Authenticate to Conjur Cloud with JWT
         run: |
           echo "🔒 Authenticating with Conjur Cloud"
+          
+          # Perform the authentication request to Conjur
           response=$(curl -s -w "%{http_code}" -o conjur_token.txt \
             -X POST "https://sme-andrew.secretsmgr.cyberark.cloud/api/authn-jwt/EyaGithub/conjur/testmayjwt/authenticate" \
             -H "Accept-Encoding: base64" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             --data-urlencode "jwt=${{ env.jwt_token }}")
 
+          # Capture the HTTP status code and check if authentication was successful
           status=$(tail -n1 <<< "$response")
+          
           if [ "$status" != "200" ]; then
             echo "❌ Auth failed with status $status"
+            echo "Response Body:"
             cat conjur_token.txt
             exit 1
           fi
@@ -66,3 +76,8 @@ jobs:
           echo "✅ Auth succeeded"
           token=$(cat conjur_token.txt)
           echo "conjur_token=$token" >> $GITHUB_ENV
+
+      - name: Print Conjur Token (for debugging)
+        run: |
+          echo "🔑 Conjur Token:"
+          echo "${{ env.conjur_token }}"
