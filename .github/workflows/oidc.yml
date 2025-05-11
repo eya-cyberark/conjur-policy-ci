@@ -35,6 +35,11 @@ jobs:
         run: |
           jwt_b64=$(echo -n "${{ env.jwt_token }}" | base64 | tr -d '\n')
           echo "jwt_base64=$jwt_b64" >> $GITHUB_ENV
+      
+      - name: Decode JWT
+        run: |
+          echo "$jwt_token" | cut -d '.' -f2 | base64 --decode | jq
+
 
       - name: Authenticate to Conjur Cloud with JWT
         run: |
