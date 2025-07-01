@@ -58,7 +58,7 @@ jobs:
           
           # Perform the authentication request to Conjur
           response=$(curl -s -w "%{http_code}" -o conjur_token.txt \
-            -X POST "https://sme-andrew.secretsmgr.cyberark.cloud/api/authn-jwt/EyaGithub/conjur/May11Test/authenticate" \
+            -X POST "https://sme-andrew.secretsmgr.cyberark.cloud/api/authn-jwt/EyaGithub/conjur/eyatestaction/authenticate" \
             -H "Accept-Encoding: base64" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             --data-urlencode "jwt=${{ env.jwt_token }}")
