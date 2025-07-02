@@ -81,3 +81,7 @@ jobs:
         run: |
           echo "🔑 Conjur Token:"
           echo "${{ env.conjur_token }}"
+
+      - name: Load Poicy to Conjur 
+        run: | 
+          files=$(git dif-tree --no-commit-id  --name-only -r  ${GITHUB_SHA})
