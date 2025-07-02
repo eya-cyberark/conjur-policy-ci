@@ -82,14 +82,16 @@ jobs:
           echo "🔑 Conjur Token:"
           echo "${{ env.conjur_token }}"
 
-      - name: Load Poicy to Conjur 
+
+
+
+
+      - name: Load Policy to Conjur 
         run: | 
           files=$(git diff-tree --no-commit-id --name-only -r ${GITHUB_SHA})
           
           found_01=false
           found_02=false
-
-
           
           for file in $files; do
             if [[ "$file" == *workflows/*.yml ]]; then
@@ -97,8 +99,6 @@ jobs:
               continue
             fi
 
-
-            
             if [[ -f "$file" ]]; then
               if [[ "$file" == *policy/*01.yml ]]; then
                 found_01=true
@@ -113,7 +113,7 @@ jobs:
 
                 curl -v --request POST \
                   --url https://sme-andrew.secretsmgr.cyberark.cloud/api/policies/conjur/policy/data/githubTest \
-                  --header "Authorization: Token token=\"${{ env.auth_token }}\"" \
+                  --header "Authorization: Token token=\"${{ env.conjur_token }}\"" \
                   --header "Content-Type: text/plain" \
                   --data-binary @"$file"
               fi
