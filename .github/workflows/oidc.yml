@@ -2,6 +2,13 @@ name: Test GitHub OIDC Token and Authenticate
 
 on:
   workflow_dispatch:
+    inputs:
+      base:
+        description: 'Base commit SHA or branch (e.g. main)'
+        required: true
+      head:
+        description: 'Head commit SHA or branch (e.g. feature-branch or commit SHA)'
+        required: true
 
 permissions:
   id-token: write
@@ -15,8 +22,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
-
+          fetch-depth: 0  # get full history so we can diff
 
       - name: Install tools
         run: |
@@ -75,10 +81,14 @@ jobs:
           echo "🔑 Conjur Token:"
           echo "${{ env.conjur_token }}"
 
-      - name: Load Policy to Conjur
+      - name: Load changed Policy files to Conjur
         run: |
-          echo "📂 Looking for changed policy files..."
-          files=$(git ls-files policy/)
+          echo "📂 Finding changed policy files between ${{ github.event.inputs.base }} and ${{ github.event.inputs.head }}"
+
+          files=$(git diff --name-only ${{ github.event.inputs.base }} ${{ github.event.inputs.head }} -- policy/)
+
+          echo "Changed policy files:"
+          echo "$files"
 
           found_01=false
           found_02=false
@@ -97,8 +107,8 @@ jobs:
                 found_02=true
               fi
 
-              if [[ "$file" == *policy/*01.yml || "$file" == *github/*02.yml ]]; then
-                echo "📄 Matched policy file: $file"
+              if [[ "$file" == *policy/*01.yml || "$file" == *policy/*02.yml ]]; then
+                echo "📄 Uploading changed policy file: $file"
                 cat "$file"
 
                 curl -v --request POST \
@@ -111,7 +121,7 @@ jobs:
           done
 
           if [[ "$found_01" == true && "$found_02" == true ]]; then
-            echo "✅ Both 01 and 02 policy files were found!"
+            echo "✅ Both 01 and 02 policy files were changed!"
           else
-            echo "ℹ️ One or both policy files were not found or changed."
+            echo "ℹ️ One or both policy files were not changed."
           fi
