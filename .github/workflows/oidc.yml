@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Install tools
         run: |
           sudo apt-get update && sudo apt-get install -y jq curl
@@ -20,15 +23,13 @@ jobs:
         id: jwt
         run: |
           echo "🔐 Requesting GitHub OIDC token..."
-          
-          # Request the OIDC token for Conjur audience
+
           resp=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
 
           echo "📦 Raw response:"
           echo "$resp"
 
-          # Extract the JWT token
           jwt=$(echo "$resp" | jq -r '.value')
           if [ "$jwt" = "null" ] || [ -z "$jwt" ]; then
             echo "❌ Failed to get JWT"
@@ -36,36 +37,25 @@ jobs:
           fi
 
           echo "✅ Got JWT"
-          echo "🔓 JWT Token:"
-          echo "$jwt"
           echo "jwt_token=$jwt" >> $GITHUB_ENV
-
-      - name: Base64 Encode JWT
-        run: |
-          # Base64 encode the JWT token (no new lines)
-          jwt_b64=$(echo -n "${{ env.jwt_token }}" | base64 | tr -d '\n')
-          echo "jwt_base64=$jwt_b64" >> $GITHUB_ENV
 
       - name: Decode JWT
         run: |
           echo "🧬 Decoded JWT Payload:"
-          # Decode the JWT payload and format it for readability
           echo "${{ env.jwt_token }}" | cut -d '.' -f2 | base64 --decode | jq
 
       - name: Authenticate to Conjur Cloud with JWT
         run: |
           echo "🔒 Authenticating with Conjur Cloud"
-          
-          # Perform the authentication request to Conjur
+
           response=$(curl -s -w "%{http_code}" -o conjur_token.txt \
             -X POST "https://sme-andrew.secretsmgr.cyberark.cloud/api/authn-jwt/EyaGithub/conjur/authenticate" \
             -H "Accept-Encoding: base64" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             --data-urlencode "jwt=${{ env.jwt_token }}")
 
-          # Capture the HTTP status code and check if authentication was successful
           status=$(tail -n1 <<< "$response")
-          
+
           if [ "$status" != "200" ]; then
             echo "❌ Auth failed with status $status"
             echo "Response Body:"
@@ -82,17 +72,14 @@ jobs:
           echo "🔑 Conjur Token:"
           echo "${{ env.conjur_token }}"
 
+      - name: Load Policy to Conjur
+        run: |
+          echo "📂 Looking for changed policy files..."
+          files=$(git ls-files policy/)
 
-
-
-
-      - name: Load Policy to Conjur 
-        run: | 
-          files=$(git diff-tree --no-commit-id --name-only -r ${GITHUB_SHA})
-          
           found_01=false
           found_02=false
-          
+
           for file in $files; do
             if [[ "$file" == *workflows/*.yml ]]; then
               echo "Skipping workflow file: $file"
@@ -108,7 +95,7 @@ jobs:
               fi
 
               if [[ "$file" == *policy/*01.yml || "$file" == *github/*02.yml ]]; then
-                echo "Matched policy file: $file"
+                echo "📄 Matched policy file: $file"
                 cat "$file"
 
                 curl -v --request POST \
@@ -121,6 +108,7 @@ jobs:
           done
 
           if [[ "$found_01" == true && "$found_02" == true ]]; then
-            echo "✅ Both 01 and 02 files changed in this commit!"
-            # Optional additional logic here
+            echo "✅ Both 01 and 02 policy files were found!"
+          else
+            echo "ℹ️ One or both policy files were not found or changed."
           fi
