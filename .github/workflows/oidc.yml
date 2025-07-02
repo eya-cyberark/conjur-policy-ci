@@ -1,14 +1,12 @@
 name: Test GitHub OIDC Token and Authenticate
 
 on:
-  workflow_dispatch:
-    inputs:
-      base:
-        description: 'Base commit SHA or branch (e.g. main)'
-        required: true
-      head:
-        description: 'Head commit SHA or branch (e.g. feature-branch or commit SHA)'
-        required: true
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
   id-token: write
@@ -22,7 +20,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # get full history so we can diff
+          fetch-depth: 0
 
       - name: Install tools
         run: |
@@ -36,9 +34,6 @@ jobs:
           resp=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
 
-          echo "📦 Raw response:"
-          echo "$resp"
-
           jwt=$(echo "$resp" | jq -r '.value')
           if [ "$jwt" = "null" ] || [ -z "$jwt" ]; then
             echo "❌ Failed to get JWT"
@@ -48,15 +43,8 @@ jobs:
           echo "✅ Got JWT"
           echo "jwt_token=$jwt" >> $GITHUB_ENV
 
-      - name: Decode JWT
-        run: |
-          echo "🧬 Decoded JWT Payload:"
-          echo "${{ env.jwt_token }}" | cut -d '.' -f2 | base64 --decode | jq
-
       - name: Authenticate to Conjur Cloud with JWT
         run: |
-          echo "🔒 Authenticating with Conjur Cloud"
-
           response=$(curl -s -w "%{http_code}" -o conjur_token.txt \
             -X POST "https://sme-andrew.secretsmgr.cyberark.cloud/api/authn-jwt/EyaGithub/conjur/authenticate" \
             -H "Accept-Encoding: base64" \
@@ -67,25 +55,28 @@ jobs:
 
           if [ "$status" != "200" ]; then
             echo "❌ Auth failed with status $status"
-            echo "Response Body:"
             cat conjur_token.txt
             exit 1
           fi
 
-          echo "✅ Auth succeeded"
           token=$(cat conjur_token.txt)
           echo "conjur_token=$token" >> $GITHUB_ENV
 
-      - name: Print Conjur Token (for debugging)
+      - name: Find changed policy files
         run: |
-          echo "🔑 Conjur Token:"
-          echo "${{ env.conjur_token }}"
+          echo "📂 Finding changed policy files..."
 
-      - name: Load changed Policy files to Conjur
-        run: |
-          echo "📂 Finding changed policy files between ${{ github.event.inputs.base }} and ${{ github.event.inputs.head }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
 
-          files=$(git diff --name-only ${{ github.event.inputs.base }} ${{ github.event.inputs.head }} -- policy/)
+          echo "Comparing $base_sha to $head_sha"
+
+          files=$(git diff --name-only $base_sha $head_sha -- policy/ || echo "")
 
           echo "Changed policy files:"
           echo "$files"
@@ -94,11 +85,6 @@ jobs:
           found_02=false
 
           for file in $files; do
-            if [[ "$file" == *workflows/*.yml ]]; then
-              echo "Skipping workflow file: $file"
-              continue
-            fi
-
             if [[ -f "$file" ]]; then
               if [[ "$file" == *policy/*01.yml ]]; then
                 found_01=true
@@ -108,8 +94,7 @@ jobs:
               fi
 
               if [[ "$file" == *policy/*01.yml || "$file" == *policy/*02.yml ]]; then
-                echo "📄 Uploading changed policy file: $file"
-                cat "$file"
+                echo "Uploading changed policy file: $file"
 
                 curl -v --request POST \
                   --url https://sme-andrew.secretsmgr.cyberark.cloud/api/policies/conjur/policy/data/githubTest \
