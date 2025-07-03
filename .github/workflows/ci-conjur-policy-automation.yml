@@ -86,14 +86,14 @@ jobs:
 
           for file in $files; do
             if [[ -f "$file" ]]; then
-              if [[ "$file" == *policy/*01.yml ]]; then
+              if [[ "$file" == *policy/01_*.yml ]]; then
                 found_01=true
               fi
-              if [[ "$file" == *policy/*02.yml ]]; then
+              if [[ "$file" == *policy/02_*.yml ]]; then
                 found_02=true
               fi
 
-              if [[ "$file" == *policy/*01.yml || "$file" == *policy/*02.yml ]]; then
+              if [[ "$file" == *policy/01_*.yml || "$file" == *policy*02_*.yml ]]; then
                 echo "Uploading changed policy file: $file"
 
                 curl -v --request POST \

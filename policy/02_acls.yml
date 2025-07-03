@@ -1,0 +1,4 @@
+- !permit
+  role: !host workloadEya
+  privileges: [ read, execute ]
+  resource: !variable data/GitHub-secret-Test
