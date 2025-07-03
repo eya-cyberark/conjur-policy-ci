@@ -1,5 +1,5 @@
 - !host
-  id: workloadEya2
+  id: workloadEya
   annotations:
     authn/api-key: true 
   
