@@ -97,7 +97,7 @@ jobs:
                 echo "Uploading changed policy file: $file"
 
                 curl -v --request POST \
-                  --url https://sme-andrew.secretsmgr.cyberark.cloud/api/policies/conjur/policy/data/app-secrets \
+                  --url https://sme-andrew.secretsmgr.cyberark.cloud/api/policies/conjur/policy/data/githubTest \
                   --header "Authorization: Token token=\"${{ env.conjur_token }}\"" \
                   --header "Content-Type: text/plain" \
                   --data-binary @"$file"
