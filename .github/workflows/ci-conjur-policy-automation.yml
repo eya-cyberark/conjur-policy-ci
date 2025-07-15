@@ -24,7 +24,7 @@ jobs:
 
       - name: Install tools
         run: |
-          sudo apt-get update && sudo apt-get install -y jq curl
+          sudo apt-get update && sudo apt-get install -y jq curl yamllint
 
       - name: Request GitHub OIDC Token
         id: jwt
@@ -62,12 +62,9 @@ jobs:
           token=$(cat conjur_token.txt)
           echo "conjur_token=$token" >> $GITHUB_ENV
 
-
       - name: Validate policy YAML syntax
         run: |
           echo "🔎 Validating changed policy files with yamllint..."
-
-          sudo apt-get install -y yamllint
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
@@ -83,7 +80,7 @@ jobs:
           for file in $files; do
             if [[ "$file" == *.yml || "$file" == *.yaml ]]; then
               echo "🔍 Linting $file"
-              yamllint "$file" || has_errors=1
+              yamllint -c .yamllint "$file" || has_errors=1
             fi
           done
 
@@ -94,8 +91,7 @@ jobs:
             echo "✅ All policy files passed YAML linting."
           fi
 
-
-      - name: Find changed policy files
+      - name: Find changed policy files and upload
         run: |
           echo "📂 Finding changed policy files..."
 
@@ -127,9 +123,9 @@ jobs:
               fi
 
               if [[ "$file" == *policy/01_*.yml || "$file" == *policy*02_*.yml ]]; then
-                echo "Uploading changed policy file: $file"
+                echo "📤 Uploading changed policy file: $file"
 
-                curl -v --request POST \
+                curl -s --request POST \
                   --url https://sme-andrew.secretsmgr.cyberark.cloud/api/policies/conjur/policy/data/github-apps \
                   --header "Authorization: Token token=\"${{ env.conjur_token }}\"" \
                   --header "Content-Type: text/plain" \
