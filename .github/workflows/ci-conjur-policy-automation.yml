@@ -62,6 +62,39 @@ jobs:
           token=$(cat conjur_token.txt)
           echo "conjur_token=$token" >> $GITHUB_ENV
 
+
+      - name: Validate policy YAML syntax
+        run: |
+          echo "🔎 Validating changed policy files with yamllint..."
+
+          sudo apt-get install -y yamllint
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+
+          files=$(git diff --name-only $base_sha $head_sha -- policy/ || echo "")
+          
+          has_errors=0
+          for file in $files; do
+            if [[ "$file" == *.yml || "$file" == *.yaml ]]; then
+              echo "🔍 Linting $file"
+              yamllint "$file" || has_errors=1
+            fi
+          done
+
+          if [[ $has_errors -ne 0 ]]; then
+            echo "❌ One or more policy files failed YAML linting."
+            exit 1
+          else
+            echo "✅ All policy files passed YAML linting."
+          fi
+
+
       - name: Find changed policy files
         run: |
           echo "📂 Finding changed policy files..."
