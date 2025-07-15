@@ -1,6 +1,6 @@
 ---
 - !host
-  id: workloadEyaTest1
+  id: workloadEyaTest2
   annotations:
     authn/api-key: true 
   
