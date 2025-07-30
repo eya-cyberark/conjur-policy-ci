@@ -92,7 +92,7 @@ jobs:
           fi
 
       - name: Find changed policy files and upload
-        if: github.event_name == 'push' && github.actor == 'your-github-username'
+        if: github.event_name == 'push' && github.actor == eya-cyberark
         run: |
           echo "📂 Finding changed policy files..."
 
