@@ -1,5 +1,4 @@
----
--!host
+- !host
   id: workloadEyaTest2
   annotations:
     authn/api-key: true 
