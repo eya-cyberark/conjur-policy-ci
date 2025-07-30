@@ -92,16 +92,12 @@ jobs:
           fi
 
       - name: Find changed policy files and upload
+        if: github.event_name == 'push' && github.actor == 'your-github-username'
         run: |
           echo "📂 Finding changed policy files..."
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            base_sha="${{ github.event.pull_request.base.sha }}"
-            head_sha="${{ github.event.pull_request.head.sha }}"
-          else
-            base_sha="${{ github.event.before }}"
-            head_sha="${{ github.sha }}"
-          fi
+          base_sha="${{ github.event.before }}"
+          head_sha="${{ github.sha }}"
 
           echo "Comparing $base_sha to $head_sha"
 
@@ -122,7 +118,7 @@ jobs:
                 found_02=true
               fi
 
-              if [[ "$file" == *policy/01_*.yml || "$file" == *policy*02_*.yml ]]; then
+              if [[ "$file" == *policy/01_*.yml || "$file" == *policy/02_*.yml ]]; then
                 echo "📤 Uploading changed policy file: $file"
 
                 curl -s --request POST \
