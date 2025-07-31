@@ -16,6 +16,11 @@ jobs:
   authenticate:
     runs-on: ubuntu-latest
 
+    env:
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_KEY: ${{ secrets.AZURE_OPENAI_KEY }}
+      AZURE_DEPLOYMENT_NAME: ${{ secrets.AZURE_DEPLOYMENT_NAME }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,6 +30,7 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update && sudo apt-get install -y jq curl yamllint
+          pip install openai
 
       - name: Request GitHub OIDC Token
         id: jwt
@@ -91,7 +97,7 @@ jobs:
             echo "✅ All policy files passed YAML linting."
           fi
 
-      - name: Find changed policy files and upload
+      - name: Find changed policy files and run LLM risk check + upload
         if: github.event_name == 'push' && github.actor == 'eya-cyberark'
         run: |
           echo "📂 Finding changed policy files..."
@@ -118,15 +124,20 @@ jobs:
                 found_02=true
               fi
 
-              if [[ "$file" == *policy/01_*.yml || "$file" == *policy/02_*.yml ]]; then
-                echo "📤 Uploading changed policy file: $file"
-
-                curl -s --request POST \
-                  --url https://sme-andrew.secretsmgr.cyberark.cloud/api/policies/conjur/policy/data/githubapps \
-                  --header "Authorization: Token token=\"${{ env.conjur_token }}\"" \
-                  --header "Content-Type: text/plain" \
-                  --data-binary @"$file"
+              # 🔍 LLM review before upload
+              echo "🤖 Running LLM review for $file..."
+              python3 .github/scripts/ai_policy_check.py "$file"
+              if [[ $? -ne 0 ]]; then
+                echo "❌ LLM flagged $file as risky. Halting upload."
+                exit 1
               fi
+
+              echo "📤 Uploading changed policy file: $file"
+              curl -s --request POST \
+                --url https://sme-andrew.secretsmgr.cyberark.cloud/api/policies/conjur/policy/data/githubapps \
+                --header "Authorization: Token token=\"${{ env.conjur_token }}\"" \
+                --header "Content-Type: text/plain" \
+                --data-binary @"$file"
             fi
           done
 
