@@ -1,5 +1,5 @@
 - !host
-  id: Testeya32
+  id: workload31
   annotations:
     authn/api-key: true 
   
