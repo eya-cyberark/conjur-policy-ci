@@ -32,6 +32,13 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq curl yamllint
           pip install openai==0.28
 
+      - name: Generate Conjur policy from prompt
+        run: |
+          echo "📄 Generating Conjur policy from natural language prompt..."
+          export POLICY_PROMPT="Create a host identity for app1 with read access to DB password"
+          python3 scripts/gen_policy_from_prompt.py
+
+
       - name: Request GitHub OIDC Token
         id: jwt
         run: |
