@@ -126,7 +126,7 @@ jobs:
 
               # 🔍 LLM review before upload
               echo "🤖 Running LLM review for $file..."
-              python3 .github/scripts/ai_policy_check.py "$file"
+              python3 scripts/ai_policy_check.py "$file"
               if [[ $? -ne 0 ]]; then
                 echo "❌ LLM flagged $file as risky. Halting upload."
                 exit 1
