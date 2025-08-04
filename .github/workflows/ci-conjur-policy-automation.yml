@@ -30,7 +30,7 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update && sudo apt-get install -y jq curl yamllint
-          pip install openai
+          pip install openai==0.28
 
       - name: Request GitHub OIDC Token
         id: jwt
