@@ -1,4 +1,3 @@
-- !host testtest1
 - !permit
   role: !host workloadEya
   privileges: [read, update, execute]
