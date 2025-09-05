@@ -42,7 +42,7 @@ jobs:
       - name: Request GitHub OIDC Token
         id: jwt
         run: |
-          echo "🔐 Requesting GitHub OIDC token..."
+          echo "Requesting GitHub OIDC token..."
 
           resp=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}?audience=conjur")
@@ -107,7 +107,7 @@ jobs:
       - name: Find changed policy files and run LLM risk check + upload
         if: github.event_name == 'push' && github.actor == 'eya-cyberark'
         run: |
-          echo "📂 Finding changed policy files..."
+          echo "Finding changed policy files..."
 
           base_sha="${{ github.event.before }}"
           head_sha="${{ github.sha }}"
@@ -131,11 +131,11 @@ jobs:
                 found_02=true
               fi
 
-              # 🔍 LLM review before upload
-              echo "🤖 Running LLM review for $file..."
+              # 🔍  review before upload
+              echo "Running review for $file..."
               python3 scripts/ai_policy_check.py "$file"
               if [[ $? -ne 0 ]]; then
-                echo "❌ LLM flagged $file as risky. Halting upload."
+                echo " flagged $file as risky. Halting upload."
                 exit 1
               fi
 
