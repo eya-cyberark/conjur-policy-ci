@@ -1,5 +1,5 @@
 - !host
-  id: workload95
+  id: workload100
   annotations:
     authn/api-key: true 
   
