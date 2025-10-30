@@ -32,11 +32,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq curl yamllint
           pip install openai==0.28
 
-      - name: Generate Conjur policy from prompt
-        run: |
-          echo "📄 Generating Conjur policy from natural language prompt..."
-          export POLICY_PROMPT="Create a host identity for app1 with read access to DB password"
-          python3 scripts/gen_policy_from_prompt.py
+
 
 
       - name: Request GitHub OIDC Token
@@ -104,7 +100,7 @@ jobs:
             echo "✅ All policy files passed YAML linting."
           fi
 
-      - name: Find changed policy files and run LLM risk check + upload
+      - name: Find changed policy files and run risk check + upload
         if: github.event_name == 'push' && github.actor == 'eya-cyberark'
         run: |
           echo "Finding changed policy files..."
@@ -131,13 +127,7 @@ jobs:
                 found_02=true
               fi
 
-              # 🔍  review before upload
-              echo "Running review for $file..."
-              python3 scripts/ai_policy_check.py "$file"
-              if [[ $? -ne 0 ]]; then
-                echo " flagged $file as risky. Halting upload."
-                exit 1
-              fi
+  
 
               echo "📤 Uploading changed policy file: $file"
               curl -s --request POST \
